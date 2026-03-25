@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 import yt_dlp
-import os
 
 app = Flask(__name__)
 
@@ -8,27 +7,33 @@ app = Flask(__name__)
 def home():
     return "ExpertsJava API is Live!"
 
-@app.route('/get_link', methods=['GET'])
-def get_link():
+@app.route('/fetch', methods=['GET'])
+def fetch():
     video_url = request.args.get('url')
     if not video_url:
-        return jsonify({"error": "URL is missing"}), 400
-    
+        return jsonify({"status": "error", "message": "No URL provided"}), 400
+
+    ydl_opts = {
+        'format': 'best',
+        'quiet': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
     try:
-        ydl_opts = {
-            'format': 'best',
-            'quiet': True,
-            'no_warnings': True,
-        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
+            # Snack Video ka direct link nikalna
+            download_url = info.get('url')
+            title = info.get('title', 'Snack Video')
+
             return jsonify({
-                "download_url": info.get('url'),
-                "title": info.get('title')
+                "status": "success",
+                "title": title,
+                "download_url": download_url
             })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run()
