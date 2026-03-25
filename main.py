@@ -10,6 +10,7 @@ def home():
 @app.route('/fetch', methods=['GET'])
 def fetch():
     video_url = request.args.get('url')
+    
     if not video_url:
         return jsonify({"status": "error", "message": "No URL provided"}), 400
 
@@ -23,8 +24,8 @@ def fetch():
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            # Snack Video ka direct link nikalna
-            download_url = info.get('url')
+            # Video link nikalna
+            download_url = info.get('url', '')
             title = info.get('title', 'Snack Video')
 
             return jsonify({
