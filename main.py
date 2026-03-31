@@ -25,62 +25,64 @@ def fetch():
         referer = "https://twitter.com/"
 
     ydl_opts = {
-        # Format selection optimized for both quality and speed
+        # Moj ke liye 'best' zyada stable hai
         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
-        'force_generic_extractor': False,
         'nocheckcertificate': True,
         'user_agent': user_agent,
         'referer': referer,
+        'follow_redirects': True, # Moj short links ke liye zaroori hai
         'http_headers': {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Sec-Fetch-Mode': 'navigate',
         },
-        # Compatibility settings for tough sites like Moj/Josh/TikTok
         'extractor_args': {
             'youtube': {'player_client': ['android', 'web']},
             'instagram': {'check_version': False},
         },
-        # Ignore errors to try and get at least something
-        'ignoreerrors': True,
+        'ignoreerrors': False, # Isse error ka sahi pata chalega
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # extract_info calls the scrapers
             info = ydl.extract_info(video_url, download=False)
             
             if not info:
                 return jsonify({"status": "error", "message": "Could not extract info"}), 404
 
-            # Best download URL dhoondhne ka logic
+            # Agar link playlist ya multiple entries wala hai (aksar Moj mein hota hai)
+            if 'entries' in info:
+                info = info['entries'][0]
+
             download_url = None
             
-            # 1. Direct URL check
-            if 'url' in info:
+            # 1. Sabse pehle direct 'url' check karein
+            if info.get('url'):
                 download_url = info['url']
-            # 2. Formats list check (sabse best quality wala format)
+            
+            # 2. Agar nahi mila, toh best format dhoondhein
             elif 'formats' in info:
-                # Filter for formats that have a direct URL and are likely MP4
-                valid_formats = [f for f in info['formats'] if f.get('url')]
-                if valid_formats:
-                    # Last format usually best quality
-                    download_url = valid_formats[-1]['url']
-
-            title = info.get('title', 'Video Downloader')
-            thumbnail = info.get('thumbnail', '')
+                # Reverse check (best quality piche hoti hai)
+                for f in reversed(info['formats']):
+                    if f.get('url') and (f.get('ext') == 'mp4' or 'mp4' in f.get('format', '')):
+                        download_url = f['url']
+                        break
+                
+                # Agar tab bhi nahi mila toh jo bhi best hai wo le lo
+                if not download_url:
+                    download_url = info['formats'][-1].get('url')
 
             if not download_url:
                 return jsonify({"status": "error", "message": "Direct download link missing"}), 404
 
             return jsonify({
                 "status": "success",
-                "title": title,
+                "title": info.get('title', 'Video Downloader'),
                 "download_url": download_url,
-                "thumbnail": thumbnail,
+                "thumbnail": info.get('thumbnail', ''),
                 "platform": info.get('extractor_key', 'Generic')
             })
             
